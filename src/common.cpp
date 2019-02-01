@@ -18,7 +18,9 @@
 
 #include "common.h"
 
+#if defined(IS_QT_4) || defined(QT_GUI_LIB)
 #include <QMessageBox>
+#endif
 
 qint64 readLE(QFile &file, uint16_t &out)
 {
