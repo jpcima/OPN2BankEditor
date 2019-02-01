@@ -92,10 +92,14 @@ namespace FM
 		bool	mute_;
 	};
 
+	class Channel4;
+
 	class Operator
 	{
 	public:
 		Operator();
+		void	SetChannel4(Channel4* chan4) { chan4_ = chan4; }
+		void	SetOperatorNumber(uint no) { op_number_ = no; }
 		void	SetChip(Chip* chip) { chip_ = chip; }
 
 		static void	MakeTimeTable(uint ratio);
@@ -161,12 +165,12 @@ namespace FM
 		int32	pg_diff_lfo_;	// Phase 差分値 >> x
 
 	//	Envelop Generator ---------------------------------------------------
-		void	EGCalc();
+		void	EGCalc(int flag);
 		void	EGStep();
 		void	ShiftPhase(EGPhase nextphase);
 		void	SSGShiftPhase(int mode);
 		void	SetEGRate(uint);
-		void	EGUpdate();
+		void	EGUpdate(int flag = 0);
 		int		FBCalc(int fb);
 		ISample LogToLin(uint a);
 
@@ -207,7 +211,12 @@ namespace FM
 		bool	amon_;		// enable Amplitude Modulation
 		bool	param_changed_;	// パラメータが更新された
 		bool	mute_;
-		
+
+		Channel4*	chan4_;
+		uint	op_number_;
+
+		int	temp_;
+
 	//	Tables ---------------------------------------------------------------
 		static Counter rate_table[16];
 		static uint32 multable[4][16];
@@ -249,9 +258,10 @@ namespace FM
 	{
 	public:
 		Channel4();
+		uint SlotNumber() const;
+		void SetSlotNumber(uint index);
 		void SetChip(Chip* chip);
 		void SetType(OpType type);
-		
 		ISample Calc();
 		ISample CalcL();
 		ISample CalcN(uint noise);
@@ -281,6 +291,7 @@ namespace FM
 		int*	pms;
 		int		algo_;
 		Chip*	chip_;
+		uint	slot_number_;
 
 		static void MakeTable();
 

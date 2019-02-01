@@ -208,6 +208,7 @@ OPN::OPN()
 
 	for (int i=0; i<3; i++)
 	{
+		ch[i].SetSlotNumber(i);
 		ch[i].SetChip(&chip);
 		ch[i].SetType(typeN);
 	}
@@ -374,6 +375,7 @@ void OPN::DataLoad(struct OPNData* data) {
 	csmch = &ch[2];
 	for (int i=0; i<3; i++)
 	{
+		ch[i].SetSlotNumber(i);
 		ch[i].SetChip(&chip);
 		ch[i].SetType(typeN);
 	}
@@ -448,6 +450,7 @@ OPNABase::OPNABase()
 	BuildLFOTable();
 	for (int i=0; i<6; i++)
 	{
+		ch[i].SetSlotNumber(i);
 		ch[i].SetChip(&chip);
 		ch[i].SetType(typeN);
 	}

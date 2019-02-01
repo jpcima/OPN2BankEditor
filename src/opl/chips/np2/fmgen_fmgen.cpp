@@ -434,6 +434,8 @@ void Operator::Prepare()
 			const int* table = ssgenvtable[ssg_type_ & 7][m][ssg_phase_];
 
 			ssg_offset_ = table[0] * 0x200;
+#warning XXX: test
+			// ssg_offset_ = table[0] * 0x100;
 			ssg_vector_ = table[1];
 		}
 		// LFO
@@ -535,6 +537,17 @@ void Operator::DataLoad(struct OperatorData* data)
 //	envelop の eg_phase_ 変更
 void Operator::ShiftPhase(EGPhase nextphase)
 {
+// fprintf(stderr, "shift: ");
+// switch(nextphase) {
+// case next: fprintf(stderr, "next"); break;
+// case attack: fprintf(stderr, "attack"); break;
+// case decay: fprintf(stderr, "decay"); break;
+// case sustain: fprintf(stderr, "sustain"); break;
+// case release: fprintf(stderr, "release"); break;
+// case off: fprintf(stderr, "off"); break;
+// }
+// fprintf(stderr, "\n");
+
 	switch (nextphase)
 	{
 	case attack:		// Attack Phase
@@ -551,6 +564,8 @@ void Operator::ShiftPhase(EGPhase nextphase)
 			const int* table = ssgenvtable[ssg_type_ & 7][m][ssg_phase_];
 
 			ssg_offset_ = table[0] * 0x200;
+#warning XXX: test
+			// ssg_offset_ = table[0] * 0x100;
 			ssg_vector_ = table[1];
 		}
 		if ((ar_ + key_scale_rate_) < 62)
@@ -633,9 +648,11 @@ inline FM::ISample Operator::LogToLin(uint a)
 #endif
 }
 
-inline void Operator::EGUpdate()
+inline void Operator::EGUpdate(int flag)
 {
+#warning XXX: test
 	if (!ssg_type_)
+	//if (true|| !ssg_type_)
 	{
 		eg_out_ = Min(tl_out_ + eg_level_, 0x3ff) << (1 + 2);
 	}
@@ -643,6 +660,20 @@ inline void Operator::EGUpdate()
 	{
 		eg_out_ = Min(tl_out_ + eg_level_ * ssg_vector_ + ssg_offset_, 0x3ff) << (1 + 2);
 	}
+
+temp_ = Min(tl_out_ + eg_level_, 0x3ff) << (1 + 2);
+
+#if 0
+	if (flag && op_number_ == 0 && chan4_->SlotNumber() == 0)
+	{
+		static FILE *fh = fopen("/tmp/neko.dat", "w");
+		static int i = 0;
+		// fprintf(stderr, "Slot:%d Op:%d\n", chan4_->SlotNumber(), op_number_);
+		// fprintf(stderr, "SSG vector:%d offset:%d\n", ssg_vector_, ssg_offset_);
+		fprintf(fh, "%d %d %d %d %d\n", i++, eg_out_, eg_level_, ssg_vector_, ssg_offset_);
+		fflush(fh);
+	}
+#endif
 }
 
 inline void Operator::SetEGRate(uint rate)
@@ -652,36 +683,58 @@ inline void Operator::SetEGRate(uint rate)
 }
 
 //	EG 計算
-void FM::Operator::EGCalc()
+void FM::Operator::EGCalc(int flag)
 {
+	int a = 0;
+
+static int index = 0;
+if (op_number_ == 0 && chan4_->SlotNumber() == 0) ++index;
+
+static int egbranch = -1;
+static int egbnum = 0;
+++egbnum;
+
+if(!flag) goto end;
+
 	eg_count_ = (2047 * 3) << FM_RATIOBITS;				// ##この手抜きは再現性を低下させる
 
 	if (eg_phase_ == attack)
 	{
+//if (egbranch != 1) { egbranch = 1; fprintf(stderr, "-> Attack %d\n", egbnum); egbnum = 0; }
 		int c = attacktable[eg_rate_][eg_curve_count_ & 7];
 		if (c >= 0)
 		{
-			eg_level_ -= 1 + (eg_level_ >> c);
-			if (eg_level_ <= 0)
+			a = -(1 + (eg_level_ >> c));
+			eg_level_ += a;
+			if (eg_level_ <= 0) {
+				if (op_number_ == 0 && chan4_->SlotNumber() == 0) fprintf(stderr, "SSG shift @%d → %d\n", index, a);
 				ShiftPhase(decay);
+			}
 		}
-		EGUpdate();
+		EGUpdate(1);
 	}
 	else
 	{
 		if (!ssg_type_)
 		{
-			eg_level_ += decaytable1[eg_rate_][eg_curve_count_ & 7];
-			if (eg_level_ >= eg_level_on_next_phase_)
+//if (egbranch != 2) { egbranch = 2; fprintf(stderr, "-> Rel %d\n", egbnum); egbnum = 0; }
+			a = decaytable1[eg_rate_][eg_curve_count_ & 7];
+			eg_level_ += a;
+			if (eg_level_ >= eg_level_on_next_phase_) {
+				if (op_number_ == 0 && chan4_->SlotNumber() == 0) fprintf(stderr, "SSG shift @%d → %d\n", index, a);
 				ShiftPhase(EGPhase(eg_phase_+1));
-			EGUpdate();
+			}
+			EGUpdate(1);
 		}
 		else
 		{
-			eg_level_ += 4 * decaytable1[eg_rate_][eg_curve_count_ & 7];
+//if (egbranch != 3) { egbranch = 3; fprintf(stderr, "-> Rel+Ssg %d\n", egbnum); egbnum = 0; }
+			a = 4 * decaytable1[eg_rate_][eg_curve_count_ & 7];
+			eg_level_ += a;
+EGUpdate(1);
 			if (eg_level_ >= eg_level_on_next_phase_)
 			{
-				EGUpdate();
+				//EGUpdate(1);
 				switch (eg_phase_)
 				{
 				case decay:
@@ -700,6 +753,30 @@ void FM::Operator::EGCalc()
 		}
 	}
 	eg_curve_count_++;
+
+end:
+
+#if 1
+	if (op_number_ == 0 && chan4_->SlotNumber() == 0)
+	{
+		static FILE *fh = fopen("/tmp/env-a.dat", "w");
+		fprintf(fh, "%d\n", a);
+		fflush(fh);
+	}
+#endif
+
+#if 1
+	//if (chan4_->SlotNumber() == 0) printf("operator:%d\n", op_number_);
+	if (op_number_ == 0 && chan4_->SlotNumber() == 0)
+	{
+		static FILE *fh = fopen("/tmp/neko.dat", "w");
+		static int i = 0;
+		// fprintf(stderr, "Slot:%d Op:%d\n", chan4_->SlotNumber(), op_number_);
+		// fprintf(stderr, "SSG vector:%d offset:%d\n", ssg_vector_, ssg_offset_);
+		fprintf(fh, "%d %d %d %d %d %d\n", i++, eg_out_, eg_level_, ssg_vector_, ssg_offset_, temp_);
+		fflush(fh);
+	}
+#endif
 }
 
 inline void FM::Operator::EGStep()
@@ -707,8 +784,7 @@ inline void FM::Operator::EGStep()
 	eg_count_ -= eg_count_diff_;
 
 	// EG の変化は全スロットで同期しているという噂もある
-	if (eg_count_ <= 0)
-		EGCalc();
+	EGCalc(eg_count_ <= 0);
 }
 
 //	PG 計算
@@ -733,6 +809,9 @@ inline uint32 FM::Operator::PGCalcL()
 //	in: ISample (最大 8π)
 inline FM::ISample FM::Operator::Calc(ISample in)
 {
+    // if (op_number_ == 0 && chan4_->SlotNumber() == 0)
+    //     fprintf(stderr, "Calc\n");
+
 	EGStep();
 	out2_ = out_;
 
@@ -740,17 +819,38 @@ inline FM::ISample FM::Operator::Calc(ISample in)
 	pgin += in >> (20+FM_PGBITS-FM_OPSINBITS-(2+IS2EC_SHIFT));
 	out_ = LogToLin(eg_out_ + SINE(pgin));
 
+	// // if (op_number_ == 0 && chan4_->SlotNumber() == 0)
+	// if (chan4_->SlotNumber() == 0)
+	// {
+	// 	static FILE *fh = fopen("/tmp/operator.dat", "w");
+	// 	static int i = 0;
+	// 	fprintf(fh, "%d %d\n", i++, out_);
+	// 	fflush(fh);
+	// }
+
 	dbgopout_ = out_;
 	return out_;
 }
 
 inline FM::ISample FM::Operator::CalcL(ISample in)
 {
+    // if (op_number_ == 0 && chan4_->SlotNumber() == 0)
+    //     fprintf(stderr, "CalcL\n");
+
 	EGStep();
 
 	int pgin = PGCalcL() >> (20+FM_PGBITS-FM_OPSINBITS);
 	pgin += in >> (20+FM_PGBITS-FM_OPSINBITS-(2+IS2EC_SHIFT));
 	out_ = LogToLin(eg_out_ + SINE(pgin) + ams_[chip_->GetAML()]);
+
+	// //if (op_number_ == 0 && chan4_->SlotNumber() == 0)
+	// if (chan4_->SlotNumber() == 0)
+	// {
+	// 	static FILE *fh = fopen("/tmp/operator.dat", "w");
+	// 	static int i = 0;
+	// 	fprintf(fh, "%d %d\n", i++, out_);
+	// 	fflush(fh);
+	// }
 
 	dbgopout_ = out_;
 	return out_;
@@ -774,6 +874,9 @@ inline FM::ISample FM::Operator::CalcN(uint noise)
 //	Self Feedback の変調最大 = 4π
 inline FM::ISample FM::Operator::CalcFB(uint fb)
 {
+    // if (op_number_ == 0 && chan4_->SlotNumber() == 0)
+    //     fprintf(stderr, "CalcFB\n");
+
 	EGStep();
 
 	ISample in = out_ + out2_;
@@ -787,11 +890,23 @@ inline FM::ISample FM::Operator::CalcFB(uint fb)
 	out_ = LogToLin(eg_out_ + SINE(pgin));
 	dbgopout_ = out2_;
 
+	// if (op_number_ == 0 && chan4_->SlotNumber() == 0)
+	// {
+	// 	static FILE *fh = fopen("/tmp/operator.dat", "w");
+	// 	static int i = 0;
+	// 	//fprintf(fh, "%d %d\n", i++, eg_out_ + SINE(pgin));
+	// 	fprintf(fh, "%d %d\n", i++, out_);
+	// 	fflush(fh);
+	// }
+
 	return out2_;
 }
 
 inline FM::ISample FM::Operator::CalcFBL(uint fb)
 {
+    // if (op_number_ == 0 && chan4_->SlotNumber() == 0)
+    //     fprintf(stderr, "CalcFBL\n");
+
 	EGStep();
 
 	ISample in = out_ + out2_;
@@ -822,6 +937,14 @@ bool Channel4::tablehasmade = false;
 
 Channel4::Channel4()
 {
+	slot_number_ = 0;
+
+	for (int i = 0; i < 4; ++i)
+	{
+		op[i].SetChannel4(this);
+		op[i].SetOperatorNumber(i);
+	}
+
 	if (!tablehasmade)
 		MakeTable();
 
@@ -975,11 +1098,23 @@ ISample Channel4::Calc()
 		r += op[3].Calc(0);
 		op[0].CalcFB(fb);
 		break;
-	case 7:
-		r  = op[2].Calc(0);
-		r += op[1].Calc(0);
-		r += op[3].Calc(0);
-		r += op[0].CalcFB(fb);
+	case 7: {
+int r2 = op[2].Calc(0);
+int r1 = op[1].Calc(0);
+int r3 = op[3].Calc(0);
+int r0 = op[0].CalcFB(fb);
+		r  = r2;
+		r += r1;
+		r += r3;
+		r += r0;
+	if (SlotNumber() == 0)
+	{
+		static FILE *fh = fopen("/tmp/slot.dat", "w");
+		static int i = 0;
+		fprintf(fh, "%d %d %d %d %d\n", i++, r0, r1, r2, r3);
+		fflush(fh);
+	}
+}
 		break;
 	default:
 		assert(false);

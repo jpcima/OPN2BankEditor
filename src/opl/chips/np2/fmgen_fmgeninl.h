@@ -230,6 +230,16 @@ inline void Channel4::Refresh()
 	PARAMCHANGE(3);
 }
 
+inline uint Channel4::SlotNumber() const
+{
+	return slot_number_;
+}
+
+inline void Channel4::SetSlotNumber(uint index)
+{
+	slot_number_ = index;
+}
+
 inline void Channel4::SetChip(Chip* chip)
 {
 	chip_ = chip;
