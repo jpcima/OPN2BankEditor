@@ -1,5 +1,8 @@
 cmake_minimum_required(VERSION 3.3)
 
+# set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fsanitize=undefined")
+# set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=undefined")
+
 add_executable(test
   "sources/main.cc"
   "sources/tinysynth.cc"

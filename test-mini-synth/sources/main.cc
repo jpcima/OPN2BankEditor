@@ -4,9 +4,16 @@
 #include "opl/chips/mame_opna.h"
 #include "FileFormats/format_wohlstand_opn2.h"
 
-//typedef NukedOPN2 RefOPN2;
-typedef MameOPNA RefOPN2;
+typedef NukedOPN2 RefOPN2;
+//typedef MameOPNA RefOPN2;
 typedef NP2OPNA<> TestOPN2;
+
+enum {
+    EG_CONT = 8,
+    EG_ATT = 4,
+    EG_ALT = 2,
+    EG_HOLD = 1,
+};
 
 struct MultiSynth
 {
@@ -29,7 +36,7 @@ struct MultiSynth
 
 int main(int argc, char *argv[])
 {
-    if (argc != 2) {
+    if (argc != 2 && argc != 3) {
         fprintf(stderr, "please give opni file\n");
         return 1;
     }
@@ -39,6 +46,31 @@ int main(int argc, char *argv[])
     if (loader.loadFileInst(argv[1], ins) != FfmtErrCode::ERR_OK) {
         fprintf(stderr, "cannot load opni\n");
         return 1;
+    }
+
+#warning XXX
+//ins.OP[0].attack = 5;
+fprintf(stderr, "AR1 %d\n", ins.OP[0].attack);
+fprintf(stderr, "AR2 %d\n", ins.OP[1].attack);
+fprintf(stderr, "AR3 %d\n", ins.OP[2].attack);
+fprintf(stderr, "AR4 %d\n", ins.OP[3].attack);
+
+#warning XXX
+    if (argc == 3) {
+        int newssg = strtoul(argv[2], nullptr, 0) & 7;
+        newssg |= EG_CONT;
+        if (newssg & EG_ALT) fprintf(stderr, "SSG: ALT\n");
+        if (newssg & EG_ATT) fprintf(stderr, "SSG: ATT\n");
+        if (newssg & EG_HOLD) fprintf(stderr, "SSG: HOLD\n");
+
+        //int newssg = 0;
+        //newssg |= EG_CONT;
+        //newssg |= EG_ALT;
+        //newssg |= EG_ATT;
+        // newssg |= EG_HOLD;
+        for (int i = 0; i < 4; ++i) {
+            ins.OP[i].ssg_eg = newssg;
+        }
     }
 
     RefOPN2 refchip(OPNChip_OPN2);
@@ -60,11 +92,15 @@ int main(int argc, char *argv[])
     int16_t testbuf[2 * frames];
     int16_t *bufs[] {refbuf, testbuf};
 
-    multi.generate(bufs, frames);
+    // multi.generate(bufs, frames);
     multi.noteOn();
-    multi.generate(bufs, frames);
+    for (unsigned i = 0; i < 30; ++i) {
+        multi.generate(bufs, frames);
+        if (0) for (int f = 0; f < frames; ++f) printf("%d %d\n", bufs[0][2 * f], bufs[1][2 * f]);
+    }
     multi.noteOff();
     multi.generate(bufs, frames);
+    if (0) for (int f = 0; f < frames; ++f) printf("%d %d\n", bufs[0][2 * f], bufs[1][2 * f]);
 
     return 0;
 }
