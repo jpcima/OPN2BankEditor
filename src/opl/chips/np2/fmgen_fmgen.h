@@ -90,6 +90,7 @@ namespace FM
 		bool	amon_;
 		bool	param_changed_;
 		bool	mute_;
+		bool	inverted_;
 	};
 
 	class Channel4;
@@ -211,6 +212,7 @@ namespace FM
 		bool	amon_;		// enable Amplitude Modulation
 		bool	param_changed_;	// パラメータが更新された
 		bool	mute_;
+		bool	inverted_;
 
 		Channel4*	chan4_;
 		uint	op_number_;

@@ -310,6 +310,7 @@ FM::Operator::Operator()
 	keyon_ = false;
 	tl_out_ = false;
 	ssg_type_ = 0;
+	inverted_ = false;
 
 	// PG Part
 	multiple_ = 0;
@@ -331,6 +332,7 @@ void FM::Operator::Reset()
 	eg_count_ = 0;
 	eg_curve_count_ = 0;
 	ssg_phase_ = 0;
+	inverted_ = false;
 
 	// PG part
 	pg_count_ = 0;
@@ -426,6 +428,7 @@ void Operator::Prepare()
 		}
 
 		// SSG-EG
+		inverted_ = false;
 		if (ssg_type_ && (eg_phase_ != release))
 		{
 			int m = static_cast<int>(ar_ >= ((ssg_type_ == 8 || ssg_type_ == 12) ? 56u : 60u));
@@ -437,6 +440,12 @@ void Operator::Prepare()
 #warning XXX: test
 			// ssg_offset_ = table[0] * 0x100;
 			ssg_vector_ = table[1];
+
+			inverted_ = (ssg_type_ & 4) != 0;
+
+// attempt to match polarity with nuked OPN
+inverted_ ^= ar_ != 62;
+
 		}
 		// LFO
 		ams_ = amtable[type_][amon_ ? (ms_ >> 4) & 3 : 0];
@@ -487,6 +496,7 @@ void Operator::DataSave(struct OperatorData* data)
 	data->amon_ = amon_;
 	data->param_changed_ = param_changed_;
 	data->mute_ = mute_;
+	data->inverted_ = inverted_;
 }
 
 void Operator::DataLoad(struct OperatorData* data)
@@ -530,6 +540,7 @@ void Operator::DataLoad(struct OperatorData* data)
 	amon_ = data->amon_;
 	param_changed_ = data->param_changed_;
 	mute_ = data->mute_;
+	inverted_ = data->inverted_;
 	ams_ = amtable[type_][amon_ ? (ms_ >> 4) & 3 : 0];
 }
 
@@ -554,6 +565,8 @@ void Operator::ShiftPhase(EGPhase nextphase)
 		tl_ = tl_latch_;
 		if (ssg_type_)
 		{
+			//inverted_ ^= (ssg_type_ & 2) != 0;
+
 			ssg_phase_ = ssg_phase_ + 1;
 			if (ssg_phase_ > 2)
 				ssg_phase_ = 1;
@@ -595,7 +608,8 @@ void Operator::ShiftPhase(EGPhase nextphase)
 		break;
 
 	case release:		// Release Phase
-		if (ssg_type_)
+		inverted_ = false;
+		if (false && ssg_type_)
 		{
 			eg_level_ = eg_level_ * ssg_vector_ + ssg_offset_;
 			ssg_vector_ = 1;
@@ -650,18 +664,21 @@ inline FM::ISample Operator::LogToLin(uint a)
 
 inline void Operator::EGUpdate(int flag)
 {
+	int level = eg_level_;
+	level = (!inverted_) ? level : (512 - level) & 0x3ff;
+
 #warning XXX: test
-	if (!ssg_type_)
-	//if (true|| !ssg_type_)
+	//if (!ssg_type_)
+	if (true|| !ssg_type_)
 	{
-		eg_out_ = Min(tl_out_ + eg_level_, 0x3ff) << (1 + 2);
+		eg_out_ = Min(tl_out_ + level, 0x3ff) << (1 + 2);
 	}
 	else
 	{
-		eg_out_ = Min(tl_out_ + eg_level_ * ssg_vector_ + ssg_offset_, 0x3ff) << (1 + 2);
+		eg_out_ = Min(tl_out_ + level * ssg_vector_ + ssg_offset_, 0x3ff) << (1 + 2);
 	}
 
-temp_ = Min(tl_out_ + eg_level_, 0x3ff) << (1 + 2);
+temp_ = level;
 
 #if 0
 	if (flag && op_number_ == 0 && chan4_->SlotNumber() == 0)
@@ -670,7 +687,7 @@ temp_ = Min(tl_out_ + eg_level_, 0x3ff) << (1 + 2);
 		static int i = 0;
 		// fprintf(stderr, "Slot:%d Op:%d\n", chan4_->SlotNumber(), op_number_);
 		// fprintf(stderr, "SSG vector:%d offset:%d\n", ssg_vector_, ssg_offset_);
-		fprintf(fh, "%d %d %d %d %d\n", i++, eg_out_, eg_level_, ssg_vector_, ssg_offset_);
+		fprintf(fh, "%d %d %d %d %d\n", i++, eg_out_, level, ssg_vector_, ssg_offset_);
 		fflush(fh);
 	}
 #endif
@@ -741,6 +758,12 @@ EGUpdate(1);
 					ShiftPhase(sustain);
 					break;
 				case sustain:
+//if (op_number_ == 0 && chan4_->SlotNumber() == 0)
+//fprintf(stderr, "AR %d\n", ar_);
+
+				// inverted_ ^= (ssg_type_ & 2) != 0;
+				inverted_ ^= (ssg_type_ & 2) != 0 && (ar_ == 62); // attempt to match polarity with nuked OPN
+
 					ShiftPhase(attack);
 					break;
 				case release:
@@ -773,7 +796,12 @@ end:
 		static int i = 0;
 		// fprintf(stderr, "Slot:%d Op:%d\n", chan4_->SlotNumber(), op_number_);
 		// fprintf(stderr, "SSG vector:%d offset:%d\n", ssg_vector_, ssg_offset_);
-		fprintf(fh, "%d %d %d %d %d %d\n", i++, eg_out_, eg_level_, ssg_vector_, ssg_offset_, temp_);
+
+		// int level = eg_level_;
+		// level = (!inverted_) ? level : (512 - level) & 0x3ff;
+		fprintf(fh, "%d %d %d %d %d %d\n", i++, eg_out_, temp_, ssg_vector_, ssg_offset_, temp_);
+
+		//fprintf(fh, "%d %d %d %d %d %d\n", i++, eg_out_, eg_level_, ssg_vector_, ssg_offset_, temp_);
 		fflush(fh);
 	}
 #endif

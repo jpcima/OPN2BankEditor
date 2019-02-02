@@ -736,7 +736,7 @@ void OPN2_EnvelopeADSR(ym3438_t *chip)
     chip->eg_level[slot] = (Bit16u)nextlevel & 0x3ff;
     chip->eg_state[slot] = nextstate;
 
-#if 1
+#if 0
 	{
 		static FILE *fh = 0;
 		if (!fh) fh = fopen("/tmp/nuked.dat", "w");
@@ -868,6 +868,18 @@ void OPN2_EnvelopeGenerate(ym3438_t *chip)
         level = 0x3ff;
     }
     chip->eg_out[slot] = level;
+
+#if 1
+	{
+		static FILE *fh = 0;
+		if (!fh) fh = fopen("/tmp/nuked.dat", "w");
+		if (slot == 0 /* && chip->eg_ssg_enable[slot] */) {
+			/* fprintf(stderr, "SLOT %u\n", slot); */
+			fprintf(fh, "%d\n", chip->eg_out[slot]);
+			fflush(fh);
+		}
+	}
+#endif
 }
 
 void OPN2_UpdateLFO(ym3438_t *chip)

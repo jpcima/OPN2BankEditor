@@ -55,6 +55,13 @@ inline void Operator::KeyOn()
 		keyon_ = true;
 		if (eg_phase_ == off || eg_phase_ == release)
 		{
+			//inverted_ = false;
+			inverted_ = (ssg_type_ & 4) != 0;
+
+// attempt to match polarity with nuked OPN
+inverted_ ^= ssg_type_ && ar_ != 62;
+
+fprintf(stderr, "INVERTED start %d\n", inverted_);
 			ssg_phase_ = -1;
 			ShiftPhase(attack);
 			EGUpdate();
@@ -115,6 +122,7 @@ inline void Operator::SetTL(uint tl, bool csm)
 //	Attack Rate (0-63)
 inline void Operator::SetAR(uint ar)
 {
+//fprintf(stderr, "OPERATOR %d AR:%u\n", op_number_, ar);
 	ar_ = ar; 
 	param_changed_ = true;
 	PARAMCHANGE(8);
