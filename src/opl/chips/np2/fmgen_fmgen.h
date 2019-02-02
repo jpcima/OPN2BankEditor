@@ -91,6 +91,7 @@ namespace FM
 		bool	param_changed_;
 		bool	mute_;
 		bool	inverted_;
+		bool	held_;
 	};
 
 	class Channel4;
@@ -213,6 +214,7 @@ namespace FM
 		bool	param_changed_;	// パラメータが更新された
 		bool	mute_;
 		bool	inverted_;
+		bool	held_;
 
 		Channel4*	chan4_;
 		uint	op_number_;

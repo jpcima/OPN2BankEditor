@@ -53,13 +53,14 @@ inline void Operator::KeyOn()
 	if (!keyon_)
 	{
 		keyon_ = true;
+		held_ = false;
 		if (eg_phase_ == off || eg_phase_ == release)
 		{
 			//inverted_ = false;
 			inverted_ = (ssg_type_ & 4) != 0;
 
 // attempt to match polarity with nuked OPN
-inverted_ ^= ssg_type_ && ar_ != 62;
+inverted_ ^= (ssg_type_ & 2) && ar_ != 62;
 
 fprintf(stderr, "INVERTED start %d\n", inverted_);
 			ssg_phase_ = -1;

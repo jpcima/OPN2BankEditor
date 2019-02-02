@@ -311,6 +311,7 @@ FM::Operator::Operator()
 	tl_out_ = false;
 	ssg_type_ = 0;
 	inverted_ = false;
+	held_ = false;
 
 	// PG Part
 	multiple_ = 0;
@@ -333,6 +334,7 @@ void FM::Operator::Reset()
 	eg_curve_count_ = 0;
 	ssg_phase_ = 0;
 	inverted_ = false;
+	held_ = false;
 
 	// PG part
 	pg_count_ = 0;
@@ -429,6 +431,7 @@ void Operator::Prepare()
 
 		// SSG-EG
 		inverted_ = false;
+		held_ = false;
 		if (ssg_type_ && (eg_phase_ != release))
 		{
 			int m = static_cast<int>(ar_ >= ((ssg_type_ == 8 || ssg_type_ == 12) ? 56u : 60u));
@@ -444,7 +447,7 @@ void Operator::Prepare()
 			inverted_ = (ssg_type_ & 4) != 0;
 
 // attempt to match polarity with nuked OPN
-inverted_ ^= ar_ != 62;
+inverted_ ^= (ssg_type_ & 2) && ar_ != 62;
 
 		}
 		// LFO
@@ -497,6 +500,7 @@ void Operator::DataSave(struct OperatorData* data)
 	data->param_changed_ = param_changed_;
 	data->mute_ = mute_;
 	data->inverted_ = inverted_;
+	data->held_ = held_;
 }
 
 void Operator::DataLoad(struct OperatorData* data)
@@ -541,6 +545,7 @@ void Operator::DataLoad(struct OperatorData* data)
 	param_changed_ = data->param_changed_;
 	mute_ = data->mute_;
 	inverted_ = data->inverted_;
+	held_ = data->held_;
 	ams_ = amtable[type_][amon_ ? (ms_ >> 4) & 3 : 0];
 }
 
@@ -609,6 +614,7 @@ void Operator::ShiftPhase(EGPhase nextphase)
 
 	case release:		// Release Phase
 		inverted_ = false;
+		held_ = false;
 		if (false && ssg_type_)
 		{
 			eg_level_ = eg_level_ * ssg_vector_ + ssg_offset_;
@@ -743,12 +749,23 @@ if(!flag) goto end;
 			}
 			EGUpdate(1);
 		}
+		//else
 		else
 		{
 //if (egbranch != 3) { egbranch = 3; fprintf(stderr, "-> Rel+Ssg %d\n", egbnum); egbnum = 0; }
+
+// if (ssg_phase_ != sustain) || (ssg_type_ & 1) == 0)
+if (held_)
+{
+	eg_level_ = (((ssg_type_ & 4) != 0) ^ ((ssg_type_ & 2) != 0)) ? 0 : 1024;
+}
+else
+{
 			a = 4 * decaytable1[eg_rate_][eg_curve_count_ & 7];
 			eg_level_ += a;
+}
 EGUpdate(1);
+
 			if (eg_level_ >= eg_level_on_next_phase_)
 			{
 				//EGUpdate(1);
@@ -758,13 +775,26 @@ EGUpdate(1);
 					ShiftPhase(sustain);
 					break;
 				case sustain:
+
+// if ((ssg_type_ & 1) == 1) break;
+
 //if (op_number_ == 0 && chan4_->SlotNumber() == 0)
 //fprintf(stderr, "AR %d\n", ar_);
 
+//if (!held_)
+if (!held_ && (ssg_type_ & 1))
+{
 				// inverted_ ^= (ssg_type_ & 2) != 0;
-				inverted_ ^= (ssg_type_ & 2) != 0 && (ar_ == 62); // attempt to match polarity with nuked OPN
+				//inverted_ ^= (ssg_type_ & 2) != 0 && (ar_ == 62); // attempt to match polarity with nuked OPN
+//inverted_ = !inverted_;
+inverted_ = false;
+held_ = true;
+}
 
+if (!held_) {
+				 inverted_ ^= (ssg_type_ & 2) != 0 && (ar_ == 62); // attempt to match polarity with nuked OPN
 					ShiftPhase(attack);
+}
 					break;
 				case release:
 					ShiftPhase(off);
